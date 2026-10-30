@@ -11,6 +11,7 @@
 （このURLは GitHub Pages を有効にすると開けるようになります。Settings → Pages → Deploy from a branch → `main` / `/(root)`）
 
 ダウンロードして、ブラウザで `index.html` を開いても遊べます。
+
 ## 主なルール
 
 - サイコロで進み、空き店を買う。ほかの人の店に止まったら買い物料をはらう
