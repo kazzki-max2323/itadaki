@@ -37,7 +37,8 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; color: var(--ink); font-family: var(--body); font-weight: 500; overflow: hidden;
     touch-action: manipulation; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
-  #app, .overlay button, #toolbar { -webkit-user-select: none; user-select: none; }
+  * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  img, canvas { -webkit-user-drag: none; }
   body, .overlay.sky {
     background-color: var(--sky);
     background-image: radial-gradient(var(--sky-dot) 17%, transparent 18%), radial-gradient(var(--sky-dot) 17%, transparent 18%);
@@ -452,7 +453,7 @@
       <span class="av" style="--pc:#3ba7ff;--i:0"></span><span class="av" style="--pc:#ff5fa2;--i:1"></span>
       <span class="av" style="--pc:#ffa62b;--i:2"></span><span class="av" style="--pc:#2fcf6f;--i:3"></span>
     </div>
-    <p class="tagline">お店を買って、増資して、株でもうけて。<br>目標の総資産をためて銀行にもどった人の勝ち！</p>
+    <p class="tagline">お店を買って、増資して、株でもうけて。<br>目標の総資産をためて<wbr>銀行にもどった人の勝ち！</p>
     <p class="center"><button id="resume" class="primary" hidden>つづきから</button></p>
     <p class="center label">目標金額をえらんでスタート（あなた 対 CPU 3人）</p>
     <div class="btns center-row">
@@ -3587,6 +3588,8 @@ function setAway(v) {
   if (v) Sound.pause();
   else { Sound.resume(); awayWaiters.splice(0).forEach(r => r()); }
 }
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('selectstart', e => e.preventDefault());
 document.addEventListener('visibilitychange', () => setAway(document.hidden));
 addEventListener('pagehide', () => setAway(true));
 addEventListener('pageshow', () => setAway(document.hidden));
