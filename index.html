@@ -388,6 +388,18 @@
   .rank li:nth-child(1) { background: var(--yellow); }
   .rank li:nth-child(2) { animation-delay: .1s; } .rank li:nth-child(3) { animation-delay: .2s; } .rank li:nth-child(4) { animation-delay: .3s; }
   .rank li .w { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .record { font-weight: 800; font-size: 13px; margin: 10px 0 0; }
+  #diffSeg { margin-top: 6px; }
+  #diffSeg button { padding: 7px 14px; font-size: 14px; }
+  .chartbox { border: 3px solid var(--ink); border-radius: 16px; background: #fff; padding: 6px 4px 0; margin: 4px 0 10px; }
+  .chartbox canvas { display: block; }
+  .awards { display: flex; justify-content: center; gap: 8px; }
+  .awards .award { flex: 0 1 33%; }
+  .award { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 3px solid var(--ink); border-radius: 14px;
+    background: var(--paper); line-height: 1.3; text-align: center; animation: slideIn .4s ease-out .4s backwards; }
+  .award .ai { font-size: 24px; }
+  .award small { color: var(--muted); font-weight: 700; font-size: 11px; }
+  #toast .evicon { display: block; font-size: 2.2em; line-height: 1.1; }
   @keyframes popIn { from { transform: translateY(16px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
   @keyframes toastIn { from { transform: translate(-50%, -50%) scale(.5); } to { transform: translate(-50%, -50%) scale(1); } }
   @keyframes bob { 50% { transform: translateY(-3px); } }
@@ -455,6 +467,8 @@
     </div>
     <p class="tagline">お店を買って、増資して、株でもうけて。<br>目標の総資産をためて<wbr>銀行にもどった人の勝ち！</p>
     <p class="center"><button id="resume" class="primary" hidden>つづきから</button></p>
+    <p class="center label">CPUの強さ</p>
+    <div class="seg center-row" id="diffSeg"></div>
     <p class="center label">目標金額をえらんでスタート（あなた 対 CPU 3人）</p>
     <div class="btns center-row">
       <button data-target="5000">5,000G 短め</button>
@@ -465,6 +479,7 @@
       <button id="titleRules">ルールを読む</button>
       <button id="titleSettings">⚙️ 設定</button>
     </div>
+    <p class="center record" id="titleRecord" hidden></p>
   </div>
 </div>
 
@@ -567,6 +582,9 @@
       <li>自分の番の最初に、ほかのプレイヤーに<b>交渉</b>をもちかけられる。お店を2軒まで出す・求めることができ、お金のやり取りも加えられる。条件を変えると相手の気持ち（😡😒🤔😊😍）がわかる。あと少しのときは上乗せを求めてくる。ひどい条件を出しすぎると相手がすねて、しばらく交渉できない。CPUは自分のエリアの店を高く評価するので、おたがいに得する交換をさがそう。トップの人には少しきびしい。CPUどうしで取引することもある。CPUから交渉が来たときは「はい／絶対しない／いいえ」で答える（絶対しないを選ぶとその人からは来なくなる）。</li>
       <li>自分の番の最初に、お店を<b>競売</b>に出せる。売り出し価格はいまのお店の価値で、ほかのプレイヤーが順番に値段を上げていき、いちばん高い人が落札。入札の上限は「所持金＋株の価値」。入札がなければ銀行が売り出し価格で買い取る。どちらの場合もお金は売った人のものになる。</li>
       <li>所持金がマイナスになったら、まず株を売って返す。株で足りなければお店を<b>強制競売</b>にかける。返せなくなったら<b>破産</b>でゲーム終了、総資産で順位を決める。</li>
+      <li><b>街のイベント</b>：3ラウンドごとに、好景気（株価アップ）・不景気・お祭り（みんなに150G）・観光ブーム（1つのエリアの買い物料が2倍）・大セール（買い物料が半分）・株主優待 のどれかが起きる。</li>
+      <li>分かれ道では、止まるかもしれないマスに<b>行き先の札</b>が出る（赤い数字はそこで払う買い物料）。盤の左下で、みんなが目標に何％近いかが見られる。</li>
+      <li>タイトル画面で<b>CPUの強さ</b>（やさしい・ふつう・つよい）をえらべる。つよいCPUは止まるマスを考えて道をえらぶ。</li>
       <li>総資産（所持金＋店の価値＋株の価値）が<b>目標金額</b>以上で銀行に着いたら優勝！</li>
       <li>毎ターン自動でセーブされるので、途中で閉じても「つづきから」遊べる。</li>
     </ul>
@@ -579,6 +597,9 @@
     <h1 id="endTitle">ゲーム終了</h1>
     <p class="center" id="endMsg"></p>
     <ol class="rank" id="ranking"></ol>
+    <div class="chartbox"><canvas id="endChart" aria-label="ラウンドごとの総資産のグラフ"></canvas></div>
+    <div class="awards" id="awards"></div>
+    <p class="center record" id="endRecord"></p>
     <p class="center"><button id="again" class="primary">もう一度あそぶ</button></p>
   </div>
 </div>
@@ -681,6 +702,18 @@ let focus = { cands: [], sel: null };
 const TEMPOS = [{ v: 2.2, label: 'ゆっくり' }, { v: 1.5, label: 'ふつう' }, { v: 1, label: 'はやい' }, { v: 0.4, label: 'すごく速い' }];
 let tempo = (() => { try { const v = localStorage.getItem('itadaki-town-tempo'); return v != null && TEMPOS[+v] ? +v : 1; } catch { return 1; } })();
 let speed = DEMO ? 0.01 : TEMPOS[tempo].v;
+// how strong the CPUs play: wander = chance of a random turn at a fork, look = chance of planning where to stop,
+// buy = chance of buying a free shop, inv = share of spare cash put into a shop, keep = cash kept back
+const DIFFS = {
+  easy:   { label: 'やさしい', wander: 0.45, look: 0,    buy: 0.6, inv: 0.45, keep: 500, stockSkip: 0.55, bid: -0.15, buyout: 1600 },
+  normal: { label: 'ふつう',   wander: 0.2,  look: 0.35, buy: 1,   inv: 0.7,  keep: 400, stockSkip: 0.3,  bid: 0,     buyout: 1000 },
+  hard:   { label: 'つよい',   wander: 0.03, look: 1,    buy: 1,   inv: 0.85, keep: 250, stockSkip: 0.1,  bid: 0.12,  buyout: 600 },
+};
+let diff = DIFFS[params.get('diff')] ? params.get('diff') : (() => { try { const v = localStorage.getItem('itadaki-town-diff'); return DIFFS[v] ? v : 'normal'; } catch { return 'normal'; } })();
+// (for testing, ?demo&pdiff=hard makes only the first player play at that strength)
+const AI = p => DIFFS[(p && p.diffOverride) || diff] || DIFFS.normal;
+let townEv = null;   // the current town event, if any
+let hist = [];       // everyone's total assets at the start of each round, for the end-of-game chart
 
 // while the player is in another app or tab the game holds at its next pause, and the sound stops
 let appAway = false;
@@ -703,7 +736,8 @@ function feeRate(s) {
 function fee(s) {
   const c = cells[s];
   if (c.owner == null || c.closedUntil != null) return 0;
-  return Math.round(c.value * feeRate(s) * (players[c.owner].feeDouble || 1) * (feeDay ? feeDay.mult : 1));
+  const ev = townEv && townEv.mult && (townEv.d == null || townEv.d === c.d) ? townEv.mult : 1;
+  return Math.round(c.value * feeRate(s) * (players[c.owner].feeDouble || 1) * (feeDay ? feeDay.mult : 1) * ev);
 }
 function maxValue(s) {
   const c = cells[s];
@@ -733,6 +767,20 @@ function log(msg) {
   if (DEMO) console.log(el.textContent);
 }
 const pname = p => `<span class="chip" style="--pc:${p.color}">${p.name}</span>`;
+// CPUs say a word in a speech bubble over their piece at big moments
+const LINES = {
+  bold:   { buy: 'いただき！', pay: 'いったーい！', earn: 'まいど〜♪', promote: 'ほらね、やるでしょ？', monopoly: 'ここはあたしの！', buyout: 'もらったよ！', robbed: 'ちょっと！返して！', event: 'お祭りだ〜！' },
+  steady: { buy: 'いい買い物だ', pay: 'ぐぬぬ…', earn: 'ありがたい', promote: 'こつこつが一番', monopoly: '計画どおりだ', buyout: '悪く思うな', robbed: 'なんと…', event: 'ほう、これは' },
+  shy:    { buy: 'か、買っちゃった…', pay: 'うう…高い…', earn: 'あ、ありがとう…', promote: 'えへへ…', monopoly: 'ぜんぶ集まっちゃった…！', buyout: 'ご、ごめんね…', robbed: 'えっ…そんな…', event: 'わあ…！' },
+};
+const talk = {};
+function chat(p, kind) {
+  if (!p || !p.cpu || p.bankrupt || DEMO) return;
+  const line = (LINES[p.style] || LINES.steady)[kind];
+  if (!line) return;
+  const t0 = performance.now();
+  talk[p.id] = { text: line, t0, until: t0 + Math.max(1400, 2200 * speed) };
+}
 let toastTimer;
 async function toast(html, ms = 1400) {
   $('toast').innerHTML = html;
@@ -1056,6 +1104,30 @@ function drawTile(c, now, pop = true) {
   ctx.restore();
 }
 
+// how close everyone is to the goal, as bars in the lower-left block
+function drawRace() {
+  ctx.font = font(800, cs * 0.2); ctx.fillStyle = INK;
+  ctx.fillText('🏁 目標までのレース', 2.5 * cs, 5.5 * cs, cs * 2.5);
+  const x0 = 1.62 * cs, x1 = 3.2 * cs, bh = cs * 0.22;
+  const top = Math.max(...players.filter(q => !q.bankrupt).map(worth));
+  players.forEach((q, i) => {
+    const y = (5.98 + i * 0.47) * cs, w = worth(q), f = Math.max(0, Math.min(1, w / target));
+    drawBlob(1.4 * cs, y, cs * 0.14, q.bankrupt ? '#bbb' : q.color);
+    ctx.fillStyle = '#fff'; rr(x0, y - bh / 2, x1 - x0, bh, bh / 2); ctx.fill();
+    if (f > 0.02) { ctx.fillStyle = q.bankrupt ? '#bbb' : q.color; rr(x0, y - bh / 2, Math.max(bh, (x1 - x0) * f), bh, bh / 2); ctx.fill(); }
+    ctx.lineWidth = 2; ctx.strokeStyle = INK; rr(x0, y - bh / 2, x1 - x0, bh, bh / 2); ctx.stroke();
+    ctx.font = font(800, cs * 0.15); ctx.fillStyle = INK; ctx.textAlign = 'left';
+    ctx.fillText(q.bankrupt ? '破産' : `${Math.floor(f * 100)}%`, x1 + cs * 0.06, y + 1);
+    ctx.textAlign = 'center';
+    if (!q.bankrupt && w === top && w > START_CASH) {   // crown on the leader
+      const cx = 1.4 * cs, cy = y - cs * 0.2, k = cs * 0.08;
+      ctx.beginPath(); ctx.moveTo(cx - k, cy + k * 0.6); ctx.lineTo(cx - k, cy - k * 0.4); ctx.lineTo(cx - k * 0.5, cy + k * 0.1);
+      ctx.lineTo(cx, cy - k * 0.7); ctx.lineTo(cx + k * 0.5, cy + k * 0.1); ctx.lineTo(cx + k, cy - k * 0.4); ctx.lineTo(cx + k, cy + k * 0.6); ctx.closePath();
+      ctx.fillStyle = '#ffd23f'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
+    }
+  });
+}
+
 function drawStatic() {
   ctx = layerCtx;
   ctx.clearRect(0, 0, size, size);
@@ -1089,15 +1161,28 @@ function drawStatic() {
   }
 
   // block contents that only change with game state
+  const evY = townEv ? -0.22 : 0;
   ctx.font = font(800, cs * 0.24); ctx.fillStyle = INK;
-  ctx.fillText('目標', 6.5 * cs, 1.75 * cs);
+  ctx.fillText('目標', 6.5 * cs, (1.75 + evY) * cs);
   ctx.font = font(400, cs * 0.44, DISPLAY_FONT);
-  outlined(fmt(target), 6.5 * cs, 2.35 * cs, '#ff5fa2', INK, 4);
+  outlined(fmt(target), 6.5 * cs, (2.35 + evY) * cs, '#ff5fa2', INK, 4);
   ctx.font = font(800, cs * 0.22); ctx.fillStyle = INK;
-  ctx.fillText(`ラウンド ${round}`, 6.5 * cs, 3.05 * cs);
-  drawSkyline(1.4 * cs, 5.3 * cs, cs * 2.2);
-  ctx.font = font(400, cs * 0.26, DISPLAY_FONT);
-  outlined('いただきタウン', 2.5 * cs, 5.62 * cs, '#ffd23f', INK, 3);
+  ctx.fillText(`ラウンド ${round}`, 6.5 * cs, (3.05 + evY * 1.4) * cs);
+  if (townEv) {
+    // the running town event, as a badge under the round number
+    const left = Math.max(1, townEv.until - round);
+    ctx.font = font(800, cs * 0.155);
+    const txt = `${townEv.icon} ${townEv.short}（あと${left}R）`, tw = Math.min(cs * 2.6, ctx.measureText(txt).width + cs * 0.24), th = cs * 0.32;
+    ctx.fillStyle = '#fff'; rr(6.5 * cs - tw / 2, 3.42 * cs - th / 2, tw, th, th / 2); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = townEv.mult > 1 ? '#d6265a' : '#1d8a55'; ctx.fillText(txt, 6.5 * cs, 3.43 * cs, cs * 2.45);
+  }
+  if (hist.length && players.length) drawRace();
+  else {
+    drawSkyline(1.4 * cs, 5.3 * cs, cs * 2.2);
+    ctx.font = font(400, cs * 0.26, DISPLAY_FONT);
+    outlined('いただきタウン', 2.5 * cs, 5.62 * cs, '#ffd23f', INK, 3);
+  }
   if (current) {
     ctx.fillStyle = 'rgba(43,35,70,0.2)';
     ctx.beginPath(); ctx.ellipse(6.5 * cs, 6.75 * cs, cs * 0.45, cs * 0.1, 0, 0, 7); ctx.fill();
@@ -1144,6 +1229,18 @@ function drawBoard(now) {
     ctx.fillStyle = '#ff5fa2'; ctx.fill();
     ctx.restore();
   }
+  if (pick && pick.preview) for (const t of pick.preview) {
+    const c = cells[t.id], cx = (c.x + 0.5) * cs, cy = (c.y + 0.5) * cs, w = cs * 0.84 + 4;
+    const pulse = REDUCED ? 0.7 : 0.55 + 0.45 * Math.sin(now / 200);
+    ctx.setLineDash([4, 3]); ctx.lineWidth = 3; ctx.strokeStyle = `rgba(59,167,255,${pulse})`;
+    rr(c.x * cs + (cs - w) / 2, c.y * cs + (cs - w) / 2, w, w, cs * 0.2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = font(800, cs * 0.17);
+    const tw = Math.max(cs * 0.5, ctx.measureText(t.text).width + cs * 0.16), th = cs * 0.26, ty = cy + cs * 0.36;
+    ctx.fillStyle = t.bg; rr(cx - tw / 2, ty - th / 2, tw, th, th / 2); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = t.fg || INK; ctx.fillText(t.text, cx, ty + 1);
+  }
   if (selected != null) {
     const c = cells[selected], w = cs * 0.84 + 4;
     ctx.setLineDash([5, 4]); ctx.lineWidth = 2.5; ctx.strokeStyle = INK;
@@ -1152,7 +1249,7 @@ function drawBoard(now) {
   }
 
   // tokens, back to front
-  const toks = players.map((p, i) => ({ p, i, t: tokenPos(p, i, now) })).filter(o => !o.p.bankrupt).sort((a, b) => a.t.y - b.t.y);
+  const toks = players.filter(p => !p.bankrupt).map((p, i) => ({ p, i, t: tokenPos(p, i, now) })).sort((a, b) => a.t.y - b.t.y);
   // the player whose turn it is: square outlined in their colour
   const curTok = toks.find(o => o.p === current);
   if (curTok && !curTok.t.moving) {
@@ -1178,6 +1275,28 @@ function drawBoard(now) {
       ctx.beginPath(); ctx.moveTo(t.x, by + aw); ctx.lineTo(t.x - aw, by - aw * 0.4); ctx.lineTo(t.x + aw, by - aw * 0.4); ctx.closePath();
       ctx.fillStyle = p.color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
     }
+  }
+
+  // speech bubbles
+  for (const { p, t } of toks) {
+    const b = talk[p.id];
+    if (!b) continue;
+    if (now > b.until) { delete talk[p.id]; continue; }
+    const age = now - b.t0, a = Math.min(1, age / 120, (b.until - now) / 200), pop = REDUCED ? 1 : Math.min(1, 0.6 + age / 300);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.font = font(800, cs * 0.2);
+    const tw = ctx.measureText(b.text).width + cs * 0.3, th = cs * 0.38;
+    let bx = Math.max(tw / 2 + 2, Math.min(size - tw / 2 - 2, t.x)), by = t.y - t.hop - cs * 0.62;
+    if (by - th / 2 < 2) by = t.y + cs * 0.62;   // no room above: show it below
+    ctx.translate(bx, by); ctx.scale(pop, pop);
+    ctx.fillStyle = '#fff'; rr(-tw / 2, -th / 2, tw, th, th / 2); ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = p.color; ctx.stroke();
+    const tx = Math.max(-tw / 2 + th / 2, Math.min(tw / 2 - th / 2, t.x - bx)), up = by < t.y;
+    ctx.beginPath(); ctx.moveTo(tx - cs * 0.07, up ? th / 2 - 1 : -th / 2 + 1); ctx.lineTo(tx, up ? th / 2 + cs * 0.12 : -th / 2 - cs * 0.12); ctx.lineTo(tx + cs * 0.07, up ? th / 2 - 1 : -th / 2 + 1);
+    ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = INK; ctx.fillText(b.text, 0, 1);
+    ctx.restore();
   }
 
   // shops offered in a dialog: soft glow on all, arrow on the chosen one
@@ -1980,7 +2099,7 @@ function isBusy(now) {
   return players.some(p => p.anim && now < p.anim.t0 + p.anim.dur + 80)
     || (dice && (dice.rolling || (dice.t0 && now - dice.t0 < 900)))
     || highlight.length > 0 || focus.cands.length > 0 || focus.sel != null
-    || Object.keys(cellFx).length > 0 || shown('auctionOv') || shown('tradeOv') || shown('stockOv');
+    || Object.keys(cellFx).length > 0 || Object.values(talk).some(t => now < t.until) || shown('auctionOv') || shown('tradeOv') || shown('stockOv');
 }
 let lastDraw = 0, wasBusy = true;
 function frame(now) {
@@ -2017,7 +2136,8 @@ function newGame(t) {
     ...d, cpu: d.cpu || DEMO, id, cash: START_CASH, pos: BANK, prev: null, suits: {}, wild: 0, level: 1,
     stocks: DISTRICTS.map(() => 0), skip: false, feeDouble: false, freeFee: false, bankrupt: false,
   }));
-  turn = 0; round = 1;
+  if (DEMO && DIFFS[params.get('pdiff')]) players[0].diffOverride = params.get('pdiff');
+  turn = 0; round = 1; townEv = null; hist = [players.map(worth)];
   newChanceBoard();
   startLoop();
 }
@@ -2025,6 +2145,8 @@ function newGame(t) {
 function startLoop() {
   over = false; current = null; dice = null; selected = null; highlight = [];
   players.forEach(p => { p._last = p.cash; delete p.anim; });
+  if (!hist.length) hist = [players.map(worth)];
+  for (const k in talk) delete talk[k];
   Sound.startBgm();
   $('log').innerHTML = '';
   ['title', 'end'].forEach(id => $(id).classList.add('hidden'));
@@ -2045,9 +2167,43 @@ async function gameLoop(id) {
       }
     }
     turn = (turn + 1) % players.length;
-    if (turn === 0) round++;
+    if (turn === 0) {
+      round++;
+      hist.push(players.map(worth));
+      if (!over && id === gameId) await townEvent();
+    }
     renderPanel();
   }
+}
+
+// ---- town events: every 3 rounds something happens to the whole town ----
+const TOWN_EVENTS = [
+  { key: 'boom',  icon: '📈', name: '好景気',   text: 'ぜんぶのエリアの株価が10%アップ！', run() { DISTRICTS.forEach(d => d.mod *= 1.1); } },
+  { key: 'slump', icon: '📉', name: '不景気',   text: d => `${d.map(i => DISTRICTS[i].name).join('と')}の株価が10%ダウン…`, pick: 2, run(d) { d.forEach(i => DISTRICTS[i].mod *= 0.9); } },
+  { key: 'fest',  icon: '🎆', name: 'お祭り',   text: 'みんなにお祝い金 150G！', run() { players.forEach(q => { if (!q.bankrupt) q.cash += 150; }); } },
+  { key: 'tour',  icon: '📸', name: '観光ブーム', text: d => `${DISTRICTS[d[0]].name}の買い物料が2倍！（2ラウンド）`, pick: 1, rounds: 2, mult: 2 },
+  { key: 'sale',  icon: '🏷️', name: '大セール', text: 'ぜんぶの買い物料が半分！（1ラウンド）', rounds: 1, mult: 0.5 },
+  { key: 'perk',  icon: '🎁', name: '株主優待', text: '株を持っている人は、株の価値の5%がもらえる！',
+    run() { players.forEach(q => { if (!q.bankrupt) q.cash += Math.round(stockWorth(q) * 0.05); }); } },
+];
+async function townEvent() {
+  if (townEv && round >= townEv.until) { log(`${townEv.icon} ${townEv.name}がおわった`); townEv = null; markDirty(); }
+  if (round % 3) return;
+  const ev = TOWN_EVENTS[rand(TOWN_EVENTS.length)];
+  // areas with shops on them make the more interesting picks
+  const areas = DISTRICTS.map((d, i) => i).sort((a, b) => (DISTRICTS[b].shops.some(s => cells[s].owner != null) - DISTRICTS[a].shops.some(s => cells[s].owner != null)) || Math.random() - 0.5);
+  const d = ev.pick ? areas.slice(0, ev.pick).sort(() => Math.random() - 0.5) : [];
+  const text = typeof ev.text === 'function' ? ev.text(d) : ev.text;
+  if (ev.run) ev.run(d);
+  townEv = ev.rounds ? { key: ev.key, icon: ev.icon, name: ev.name, mult: ev.mult, d: ev.pick ? d[0] : null, until: round + ev.rounds,
+    short: ev.pick ? `${DISTRICTS[d[0]].name} 買い物料×${ev.mult}` : `買い物料×${ev.mult}` } : townEv;
+  if (ev.pick && ev.rounds) DISTRICTS[d[0]].shops.forEach(s => { cellPop(s); burstCell(s, 12, 0.7); });
+  Sound.play(ev.key === 'slump' ? 'bad' : 'fanfare');
+  log(`${ev.icon} 街のイベント「<b>${ev.name}</b>」 ${text}`);
+  renderPanel(); markDirty();
+  const fan = players.filter(q => q.cpu && !q.bankrupt);
+  if (fan.length) chat(fan[rand(fan.length)], 'event');
+  await toast(`<span class="evicon">${ev.icon}</span><small>ラウンド${round} 街のイベント</small><br><b>${ev.name}</b><br>${text}`, 2000);
 }
 
 async function takeTurn(p) {
@@ -2142,7 +2298,7 @@ async function move(p, n) {
   for (let i = 0; i < n; i++) {
     let opts = cells[p.pos].nb.filter(id => id !== p.prev);
     if (!opts.length) opts = cells[p.pos].nb;
-    const next = opts.length === 1 ? opts[0] : p.cpu ? cpuDirection(p, opts) : await humanDirection(p, opts, n - i);
+    const next = opts.length === 1 ? opts[0] : p.cpu ? cpuDirection(p, opts, n - i) : await humanDirection(p, opts, n - i);
     p.anim = { from: p.pos, to: next, t0: performance.now(), dur: 230 * speed };
     p.prev = p.pos; p.pos = next;
     Sound.play('step');
@@ -2170,11 +2326,31 @@ const cellName = id => {
 
 function humanDirection(p, opts, left) {
   highlight = opts;
+  // where each way could end up: shown on the board as little tags
+  const seen = new Set(), preview = [];
+  for (const o of opts) for (const r of landings(o, p.pos, left - 1, [o])) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    preview.push({ id: r.id, ...previewTag(p, r.id) });
+  }
   return new Promise(res => {
     const done = v => { pick = null; highlight = []; closeDialog(); res(v); };
-    pick = { opts, done, from: p.pos };
+    pick = { opts, done, from: p.pos, preview };
     showDialog({ title: `矢印をタップして進もう（のこり${left}）` }, done);
   });
+}
+
+function previewTag(p, id) {
+  const c = cells[id];
+  if (c.type === 'shop') {
+    if (c.owner == null) return { text: p.cash >= c.value ? '買える' : '空き店', bg: '#5fe0b5' };
+    if (c.owner === p.id) return { text: '増資', bg: '#ffd23f' };
+    const f = fee(id);
+    return f ? { text: `-${f}`, bg: '#ff3d63', fg: '#fff' } : { text: '休み', bg: '#efeae0' };
+  }
+  if (c.type === 'plot' && c.owner != null && c.owner !== p.id)
+    return { text: c.building === 'cp' ? `-${c.cpFee}` : '-4%', bg: '#ff3d63', fg: '#fff' };
+  return { text: 'ここ', bg: '#fff' };
 }
 
 async function bankVisit(p, landed) {
@@ -2188,6 +2364,7 @@ async function bankVisit(p, landed) {
     p.suits = {};
     p.wild -= used;
     log(`🎉 ${pname(p)}がレベル${p.level}に昇進！ 給料 <b>${fmt(pay)}</b>`);
+    chat(p, 'promote');
     renderPanel();
     await toast(`🎉 ${pname(p)}が昇進！<br>給料 <b>${fmt(pay)}</b>`, 1300);
   }
@@ -2256,7 +2433,7 @@ async function landShop(p, c) {
   const d = DISTRICTS[c.d];
   if (c.owner == null) {
     if (p.cash < c.value) { log(`${pname(p)}は${c.name}を買うお金が足りない`); return; }
-    const yes = p.cpu ? p.cash - c.value >= 50 : await ask({
+    const yes = p.cpu ? p.cash - c.value >= 50 && Math.random() < AI(p).buy : await ask({
       title: `${c.name}を買いますか？`,
       body: `${d.name}（${d.key}）・ 店の価値 <b>${fmt(c.value)}</b><br>所持金 ${fmt(p.cash)} → ${fmt(p.cash - c.value)}`,
       buttons: [{ label: `買う（${fmt(c.value)}）`, value: true, primary: true }, { label: '買わない', value: false }],
@@ -2265,6 +2442,7 @@ async function landShop(p, c) {
       p.cash -= c.value; c.owner = p.id;
       Sound.play('buy'); cellPop(c.id); burstCell(c.id, 28);
       log(`${pname(p)}が${d.name}の${c.name}を <b>${fmt(c.value)}</b> で買った`);
+      chat(p, 'buy');
       if (p.cpu) await toast(`🏠 ${pname(p)}が<br><b>${c.name}</b>を ${fmt(c.value)} で買った！`, 1100);
       checkMonopoly(p, c.id);
       await sleep(400);
@@ -2280,6 +2458,9 @@ async function landShop(p, c) {
     if (p.feeTwice && f > 0) { p.feeTwice = false; f *= 2; log(`${pname(p)}は買い物料が2倍…`); }
     if (p.freeFee && f > 0) { p.freeFee = false; f = 0; log(`${pname(p)}は無料券を使った！`); }
     p.cash -= f; o.cash += f;
+    p.paid = (p.paid || 0) + f; o.earned = (o.earned || 0) + f;
+    if (f >= 150) chat(p, 'pay');
+    if (f >= 100) chat(o, 'earn');
     Sound.play(f > 0 ? 'pay' : 'coin');
     log(`${pname(p)}が${pname(o)}の${c.name}で買い物料 <b>${fmt(f)}</b>`);
     renderPanel();
@@ -2287,7 +2468,7 @@ async function landShop(p, c) {
     if (f > 0) payDividends(c.d, f);
     const cost = c.value * 5;
     if (p.cash >= cost) {
-      const yes = p.cpu ? p.cash - cost >= 1000 && ownedIn(p.id, c.d) >= 1 : await ask({
+      const yes = p.cpu ? p.cash - cost >= AI(p).buyout && ownedIn(p.id, c.d) >= 1 : await ask({
         title: `${c.name}を買い取りますか？`,
         body: `5倍の <b>${fmt(cost)}</b> で買い取れます（${o.name}は ${fmt(c.value * 3)} を受け取る）。<br>所持金 ${fmt(p.cash)} → ${fmt(p.cash - cost)}`,
         buttons: [{ label: '買い取る', value: true }, { label: 'やめる', value: false, primary: true }],
@@ -2296,6 +2477,7 @@ async function landShop(p, c) {
         p.cash -= cost; o.cash += c.value * 3; c.owner = p.id;
         Sound.play('warp'); cellPop(c.id); burstCell(c.id, 50, 1.2);
         log(`💥 ${pname(p)}が${pname(o)}の${c.name}を <b>${fmt(cost)}</b> で買い取った！`);
+        chat(p, 'buyout'); chat(o, 'robbed');
         await toast(`💥 ${pname(p)}が${c.name}を買い取った！`, 1100);
       }
     }
@@ -2324,6 +2506,8 @@ async function landPlot(p, c) {
     let f = c.building === 'cp' ? c.cpFee : Math.max(0, Math.round(worth(p) * 0.04));
     if (p.freeFee) { p.freeFee = false; f = 0; log(`${pname(p)}は無料券を使った！`); }
     p.cash -= f; o.cash += f;
+    p.paid = (p.paid || 0) + f; o.earned = (o.earned || 0) + f;
+    if (f >= 150) chat(p, 'pay');
     Sound.play('pay');
     const what = c.building === 'cp' ? '通行料' : '税金';
     log(`${pname(p)}が${pname(o)}の${BUILDINGS[c.building].label}で${what} <b>${fmt(f)}</b>`);
@@ -2376,6 +2560,7 @@ function checkMonopoly(q, s) {
   Sound.play('fanfare');
   DISTRICTS[c.d].shops.forEach(x => { cellPop(x); burstCell(x, 20, 0.9); });
   log(`👑 ${pname(q)}が${DISTRICTS[c.d].name}を独占！`);
+  chat(q, 'monopoly');
   toast(`👑 ${pname(q)}が<br><b>${DISTRICTS[c.d].name}</b>を独占！`, 1300);
 }
 
@@ -2692,7 +2877,7 @@ function saveGame() {
   const data = {
     target, turn, round, players,
     props: [...SHOPS, ...PLOTS].map(s => { const c = cells[s]; return [s, c.owner, c.value, c.building || null, c.cpFee || 0, c.closedUntil ?? null]; }),
-    mods: DISTRICTS.map(d => d.mod), chance, feeDay,
+    mods: DISTRICTS.map(d => d.mod), chance, feeDay, diff, townEv, hist,
   };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch {}
 }
@@ -2709,13 +2894,26 @@ function resumeGame() {
   sv.props.forEach(([id, owner, value, building, cpFee, closedUntil = null]) => Object.assign(cells[id], { owner, value, building, cpFee, closedUntil }));
   DISTRICTS.forEach((d, i) => d.mod = sv.mods[i]);
   feeDay = sv.feeDay || null;
+  if (DIFFS[sv.diff]) diff = sv.diff;
+  townEv = sv.townEv || null;
+  hist = sv.hist || [];
   if (sv.chance) chance = sv.chance; else newChanceBoard();
   startLoop();
 }
 function refreshResume() {
   const sv = loadSave();
   $('resume').hidden = !sv;
-  if (sv) $('resume').textContent = `つづきから（ラウンド${sv.round}・目標${fmt(sv.target)}）`;
+  if (sv) $('resume').textContent = `つづきから（ラウンド${sv.round}・目標${fmt(sv.target)}・${(DIFFS[sv.diff] || DIFFS.normal).label}）`;
+  syncDiff();
+}
+function syncDiff() {
+  $('diffSeg').innerHTML = Object.entries(DIFFS).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.label}</button>`).join('');
+  $('diffSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
+    diff = b.dataset.d;
+    try { localStorage.setItem('itadaki-town-diff', diff); } catch {}
+    syncDiff(); Sound.play('click');
+  });
+  showRecord($('titleRecord'));
 }
 
 function payDividends(d, f) {
@@ -2883,7 +3081,7 @@ const AI_STYLE = {
 const bidLimit = q => q.cash + stockWorth(q);
 function cpuAuctionBid(q, c, price, held) {
   const st = AI_STYLE[q.style] || AI_STYLE.steady;
-  let mult = st.base;
+  let mult = st.base + AI(q).bid;
   if (c.type === 'shop') {
     const n = ownedIn(q.id, c.d), total = DISTRICTS[c.d].shops.length;
     mult += 0.3 * n + (n === total - 1 ? 0.8 : 0);
@@ -3462,8 +3660,65 @@ function distanceTo(start, blocked, targets) {
   return 99;
 }
 
-function cpuDirection(p, opts) {
-  if (Math.random() < 0.2) return opts[rand(opts.length)];
+// every square you could stop on, with `left` steps to go from `from` (arrived from `prev`), and the squares passed on the way
+function landings(from, prev, left, passed = []) {
+  if (left <= 0) return [{ id: from, passed }];
+  let opts = cells[from].nb.filter(id => id !== prev);
+  if (!opts.length) opts = cells[from].nb;
+  return opts.flatMap(o => landings(o, from, left - 1, [...passed, o]));
+}
+// how good it is for p to stop on square id (in gold, roughly)
+function stopScore(p, id) {
+  const c = cells[id];
+  if (c.type === 'shop') {
+    if (c.owner == null) return p.cash - c.value >= 50 ? 60 + ownedIn(p.id, c.d) * 80 : 0;
+    if (c.owner === p.id) return room(id) > 0 && p.cash > 400 ? 70 : 20;
+    return -fee(id) * (players[c.owner] && isLeader(players[c.owner]) ? 1.3 : 1);
+  }
+  if (c.type === 'plot') {
+    if (c.owner == null) return p.cash >= PLOT_PRICE + 100 ? 40 : 0;
+    if (c.owner === p.id) return 0;
+    return -(c.building === 'cp' ? c.cpFee : worth(p) * 0.04);
+  }
+  if (c.type === 'bank') return 50;
+  if (c.type === 'chance' || c.type === 'suit') return 45;
+  if (c.type === 'lottery') return 120;
+  if (c.type === 'stock') return p.cash > 600 ? 40 : 5;
+  if (c.type === 'rest') return -40 - ownedShops(p).length * 8;
+  return 10;
+}
+// the value of a whole route: where it stops, plus suits picked up and the bank passed on the way
+function routeScore(p, r) {
+  const got = {};
+  let v = stopScore(p, r.id);
+  for (const id of r.passed) {
+    const c = cells[id];
+    if (c.type === 'suit' && !p.suits[c.suit] && !got[c.suit]) { got[c.suit] = true; v += 90; }
+    if (c.type === 'bank') {
+      const have = Object.keys(SUITS).filter(k => p.suits[k] || got[k]).length + p.wild;
+      if (have >= 4) v += 400 + p.level * 100;
+      if (worth(p) >= target) v += 9999;
+    }
+  }
+  // and how far it leaves us from the next suit we need (or the bank once we have them all)
+  const need = SUIT_CELLS.filter(id => !p.suits[cells[id].suit] && !got[cells[id].suit]);
+  const goal = need.length > p.wild ? need : [BANK];
+  const last = r.passed.length > 1 ? r.passed[r.passed.length - 2] : null;
+  v -= 18 * distanceTo(r.id, last, goal);
+  return v;
+}
+
+function cpuDirection(p, opts, left = 1) {
+  if (Math.random() < AI(p).wander) return opts[rand(opts.length)];
+  if (Math.random() < AI(p).look) {
+    // plan ahead: take the branch whose best possible stop is the best
+    let best = opts[0], bv = -Infinity;
+    for (const o of opts) {
+      const v = Math.max(...landings(o, p.pos, left - 1, [o]).map(r => routeScore(p, r))) + Math.random() * 10;
+      if (v > bv) { bv = v; best = o; }
+    }
+    return best;
+  }
   const targets = hasAllSuits(p) ? [BANK] : SUIT_CELLS.filter(id => !p.suits[cells[id].suit]);
   let best = opts[0], bd = Infinity;
   for (const o of opts) {
@@ -3475,11 +3730,11 @@ function cpuDirection(p, opts) {
 
 async function cpuInvest(p, shopIds) {
   const cand = shopIds.filter(s => room(s) > 0);
-  const budget = p.cash - 400;
+  const budget = p.cash - AI(p).keep;
   if (!cand.length || budget < 50) return;
   cand.sort((a, b) => ownedIn(p.id, cells[b].d) - ownedIn(p.id, cells[a].d) || room(b) - room(a));
   const s = cand[0];
-  const amt = Math.floor(Math.min(room(s), budget * 0.7) / 10) * 10;
+  const amt = Math.floor(Math.min(room(s), budget * AI(p).inv) / 10) * 10;
   if (amt < 30) return;
   invest(p, s, amt);
   focusShops([s], s);
@@ -3488,8 +3743,11 @@ async function cpuInvest(p, shopIds) {
 }
 
 async function cpuBuyStock(p, eager = false, mult = 1) {
-  if (p.cash < (eager ? 600 : 900) || Math.random() < 0.3) return;
-  const scored = DISTRICTS.map((d, i) => ({ i, s: ownedIn(p.id, i) * 3 + Math.random() * 2 })).sort((a, b) => b.s - a.s);
+  if (p.cash < (eager ? 600 : 900) || Math.random() < AI(p).stockSkip) return;
+  // a strong CPU looks at where the money flows: its own shops, and areas whose shops already earn a lot
+  const smart = AI(p) === DIFFS.hard;
+  const earn = i => DISTRICTS[i].shops.reduce((a, s) => a + fee(s), 0) / 100;
+  const scored = DISTRICTS.map((d, i) => ({ i, s: ownedIn(p.id, i) * 3 + (smart ? earn(i) : 0) + Math.random() * (smart ? 0.8 : 2) })).sort((a, b) => b.s - a.s);
   const d = scored[0].i;
   const qty = Math.min(99, Math.floor((p.cash - 500) * 0.4 / buyPrice(d, mult)));
   if (qty < 1) return;
@@ -3513,8 +3771,65 @@ function endGame(winner, reason) {
     `<li><span>${i + 1}位</span><span class="av" style="--pc:${p.color}"></span><span>${p.name}</span>${p.bankrupt ? '<span>（破産）</span>' : ''}<span class="w">${fmt(worth(p))}</span></li>`).join('');
   log(winner ? `🏆 ${pname(winner)}の優勝！` : reason);
   renderPanel();
+  hist.push(players.map(worth));
+  const ok = players.filter(q => !q.bankrupt), most = k => ok.reduce((a, q) => (q[k] || 0) > (a[k] || 0) ? q : a, ok[0]);
+  const peak = players.map((q, i) => Math.max(...hist.map(h => h[i] || 0)));
+  const pi = peak.indexOf(Math.max(...peak));
+  const awards = [
+    ['💰', 'かせぎ王', most('earned'), q => `買い物料で ${fmt(q.earned || 0)}`],
+    ['🛍️', 'お得意さま', most('paid'), q => `買い物料に ${fmt(q.paid || 0)}`],
+    ['🚀', '最高資産', players[pi], () => fmt(peak[pi])],
+  ].filter(([, name, q]) => q && (name === '最高資産' || q.earned && name === 'かせぎ王' || q.paid && name === 'お得意さま'));
+  $('awards').innerHTML = awards.map(([icon, name, q, val]) =>
+    `<div class="award"><span class="ai">${icon}</span><small>${name}</small><b>${chipOf(q)}</b><small>${val(q)}</small></div>`).join('');
+  if (!DEMO) saveRecord(winner);
+  showRecord($('endRecord'));
   $('end').classList.remove('hidden');
+  drawEndChart();
   if (DEMO) window.__result = { winner: winner && winner.name, round, reason, worth: players.map(worth) };
+}
+
+// a line per player: total assets at the start of each round
+function drawEndChart() {
+  const cvs = $('endChart'), w = cvs.parentElement.clientWidth || 300, h = 170, dpr = pixelRatio();
+  cvs.width = w * dpr; cvs.height = h * dpr; cvs.style.width = w + 'px'; cvs.style.height = h + 'px';
+  const g = cvs.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const L = 40, R = 18, T = 14, B = 22, n = hist.length;
+  const max = Math.max(target, ...hist.flat()) * 1.05, min = Math.min(0, ...hist.flat());
+  const X = i => L + (n > 1 ? i / (n - 1) : 0.5) * (w - L - R), Y = v => T + (1 - (v - min) / (max - min)) * (h - T - B);
+  g.font = `700 10px ${BODY_FONT}`; g.fillStyle = '#6d6690'; g.textAlign = 'right'; g.textBaseline = 'middle';
+  g.strokeStyle = 'rgba(43,35,70,0.12)'; g.lineWidth = 1;
+  const step = max > 12000 ? 4000 : 2000;
+  for (let v = 0; v <= max; v += step) { g.beginPath(); g.moveTo(L, Y(v)); g.lineTo(w - R, Y(v)); g.stroke(); g.fillText(v ? v / 1000 + 'k' : '0', L - 6, Y(v)); }
+  g.setLineDash([6, 4]); g.strokeStyle = '#ff5fa2'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(L, Y(target)); g.lineTo(w - R, Y(target)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#ff5fa2'; g.textAlign = 'left'; g.fillText('目標', L + 4, Y(target) - 8);
+  g.fillStyle = '#6d6690'; g.textAlign = 'center';
+  const every = Math.max(1, Math.ceil(n / 8));
+  for (let i = 0; i < n; i += every) g.fillText(`R${i + 1}`, X(i), h - 8);
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  players.forEach((q, pi) => {
+    g.beginPath();
+    hist.forEach((row, i) => (i ? g.lineTo : g.moveTo).call(g, X(i), Y(row[pi] ?? 0)));
+    g.lineWidth = 6; g.strokeStyle = '#2b2346'; g.stroke();
+    g.lineWidth = 3.5; g.strokeStyle = q.color; g.stroke();
+  });
+}
+const RECORD_KEY = 'itadaki-town-record';
+const loadRecord = () => { try { return JSON.parse(localStorage.getItem(RECORD_KEY)) || {}; } catch { return {}; } };
+function saveRecord(winner) {
+  const all = loadRecord(), r = all[diff] || { games: 0, wins: 0, best: null };
+  r.games++;
+  if (winner && !winner.cpu) { r.wins++; if (r.best == null || round < r.best) r.best = round; }
+  all[diff] = r;
+  try { localStorage.setItem(RECORD_KEY, JSON.stringify(all)); } catch {}
+}
+function showRecord(el) {
+  const r = loadRecord()[diff];
+  el.hidden = !r || !r.games;
+  if (r) el.innerHTML = `🏅 あなたの成績（CPU ${DIFFS[diff].label}）：${r.games}戦 ${r.wins}勝${r.best ? `・最速優勝 ${r.best}ラウンド` : ''}`;
 }
 
 // ---------- wiring ----------
