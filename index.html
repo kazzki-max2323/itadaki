@@ -388,6 +388,33 @@
   .rank li:nth-child(1) { background: var(--yellow); }
   .rank li:nth-child(2) { animation-delay: .1s; } .rank li:nth-child(3) { animation-delay: .2s; } .rank li:nth-child(4) { animation-delay: .3s; }
   .rank li .w { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .me-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 0; }
+  .me-row .av { width: 34px; height: 34px; border-width: 3px; }
+  .me-row input { width: 8em; font: 800 16px var(--body); color: var(--ink); padding: 6px 10px; border: 3px solid var(--ink); border-radius: 12px;
+    background: #fff; text-align: center; -webkit-user-select: text; user-select: text; }
+  .me-row .colors { display: flex; gap: 6px; }
+  .me-row .colors button { width: 28px; height: 28px; padding: 0; border-radius: 50%; background: var(--c); box-shadow: 2px 2px 0 var(--ink); }
+  .me-row .colors button.on { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .ff { display: block; margin: 10px 0 0 auto; padding: 8px 16px; font-size: 15px; }
+  .ff[hidden] { display: none; }
+  .ff.on { background: var(--yellow); }
+  .trophy-pop { position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 40;
+    background: var(--yellow); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 4px 4px 0 var(--ink); padding: 8px 16px;
+    font-weight: 800; text-align: center; line-height: 1.4; pointer-events: none; animation: dropIn .5s cubic-bezier(.2, 1.5, .4, 1); }
+  .trophy-pop small { display: block; font-size: 11px; color: var(--ink); }
+  @keyframes dropIn { from { transform: translate(-50%, -80px); } to { transform: translate(-50%, 0); } }
+  .trophies { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; max-height: 55vh; }
+  .trophies .t { border: 3px solid var(--ink); border-radius: 14px; padding: 8px; line-height: 1.35; background: #fff; }
+  .trophies .t b { display: block; font-size: 14px; }
+  .trophies .t small { color: var(--muted); font-weight: 700; font-size: 11px; }
+  .trophies .t .i { font-size: 26px; }
+  .trophies .t.off { background: #f1eff6; }
+  .trophies .t.off .i { filter: grayscale(1) opacity(.35); }
+  .trophies .t.off b { color: var(--muted); }
+  body, .overlay.sky { transition: background-color 1.2s; }
+  body.t-morning { --sky: #c4ecff; --sky-dot: #e0f6ff; }
+  body.t-evening { --sky: #ffbf94; --sky-dot: #ffd3b3; }
+  body.t-night { --sky: #2f3a6e; --sky-dot: #3c4885; }
   .record { font-weight: 800; font-size: 13px; margin: 10px 0 0; }
   #diffSeg { margin-top: 6px; }
   #diffSeg button { padding: 7px 14px; font-size: 14px; }
@@ -436,6 +463,7 @@
     <div id="action">
       <div id="dialog" class="dialog hidden"><div class="card" id="dlgCard"></div></div>
       <div id="status" class="box status">タイトル画面で目標金額をえらんでね</div>
+      <button id="ffBtn" class="ff" hidden>⏩ 早送り</button>
     </div>
     <nav id="toolbar">
       <button id="stocksBtn">📈<span>株価</span></button>
@@ -467,6 +495,7 @@
     </div>
     <p class="tagline">お店を買って、増資して、株でもうけて。<br>目標の総資産をためて<wbr>銀行にもどった人の勝ち！</p>
     <p class="center"><button id="resume" class="primary" hidden>つづきから</button></p>
+    <div class="me-row"><span class="av" id="meAv"></span><input id="meName" maxlength="6" aria-label="あなたの名前" placeholder="あなた"><div class="colors" id="meColors"></div></div>
     <p class="center label">CPUの強さ</p>
     <div class="seg center-row" id="diffSeg"></div>
     <p class="center label">目標金額をえらんでスタート（あなた 対 CPU 3人）</p>
@@ -478,6 +507,7 @@
     <div class="btns center-row">
       <button id="titleRules">ルールを読む</button>
       <button id="titleSettings">⚙️ 設定</button>
+      <button id="titleTrophy">🏆 トロフィー</button>
     </div>
     <p class="center record" id="titleRecord" hidden></p>
   </div>
@@ -521,6 +551,12 @@
     <p class="center"><button class="primary" data-close="stocksOv">とじる</button></p></div>
 </div>
 
+<div id="trophyPop" class="trophy-pop" hidden></div>
+<div class="overlay sheet hidden" id="trophyOv">
+  <div class="ocard"><h1>🏆 トロフィー</h1><p class="center" id="trophyCount"></p><div id="trophyList" class="trophies scroll"></div>
+    <p class="center"><button class="primary" data-close="trophyOv">とじる</button></p></div>
+</div>
+
 <div class="overlay sheet hidden" id="logOv">
   <div class="ocard"><h1>📜 ログ</h1><div id="log" class="scroll"></div>
     <p class="center"><button class="primary" data-close="logOv">とじる</button></p></div>
@@ -538,6 +574,7 @@
     <div class="srow"><span>🔊 効果音</span><input type="range" id="seVol" min="0" max="100" step="5"><output id="seVolOut"></output></div>
     <div class="srow"><span>⏱ テンポ</span><div class="seg" id="tempoSeg"></div></div>
     <div class="srow"><span>⚡ 省エネ</span><button id="ecoBtn"></button></div>
+    <div class="srow"><span>📳 ふるえる</span><button id="buzzBtn"></button></div>
     <div class="np box"><button id="npTitle" class="nptitle" title="タップして曲をえらぶ">🎵 BGMはゲーム開始で流れます</button><button id="npNext" disabled>⏭ 次の曲</button></div>
     <p class="center"><button class="primary" data-close="settingsOv">とじる</button></p>
   </div>
@@ -584,6 +621,8 @@
       <li>所持金がマイナスになったら、まず株を売って返す。株で足りなければお店を<b>強制競売</b>にかける。返せなくなったら<b>破産</b>でゲーム終了、総資産で順位を決める。</li>
       <li><b>街のイベント</b>：3ラウンドごとに、好景気（株価アップ）・不景気・お祭り（みんなに150G）・観光ブーム（1つのエリアの買い物料が2倍）・大セール（買い物料が半分）・株主優待 のどれかが起きる。</li>
       <li>分かれ道では、止まるかもしれないマスに<b>行き先の札</b>が出る（赤い数字はそこで払う買い物料）。盤の左下で、みんなが目標に何％近いかが見られる。</li>
+      <li>タイトル画面で自分の<b>名前とコマの色</b>を変えられる。遊びながら<b>トロフィー</b>（14こ）を集めよう。CPUの番は <b>⏩ 早送り</b> でとばせる。</li>
+      <li>ラウンドが進むと、空が 朝 → 昼 → 夕方 → 夜 とうつりかわる。</li>
       <li>タイトル画面で<b>CPUの強さ</b>（やさしい・ふつう・つよい）をえらべる。つよいCPUは止まるマスを考えて道をえらぶ。</li>
       <li>総資産（所持金＋店の価値＋株の価値）が<b>目標金額</b>以上で銀行に着いたら優勝！</li>
       <li>毎ターン自動でセーブされるので、途中で閉じても「つづきから」遊べる。</li>
@@ -712,6 +751,16 @@ const DIFFS = {
 let diff = DIFFS[params.get('diff')] ? params.get('diff') : (() => { try { const v = localStorage.getItem('itadaki-town-diff'); return DIFFS[v] ? v : 'normal'; } catch { return 'normal'; } })();
 // (for testing, ?demo&pdiff=hard makes only the first player play at that strength)
 const AI = p => DIFFS[(p && p.diffOverride) || diff] || DIFFS.normal;
+// the human player's own name and colour (colours that don't clash with the CPUs)
+const ME_COLORS = ['#3ba7ff', '#9b6bff', '#17c4cf', '#ff5a4e', '#4a5bd8'];
+const loadMe = () => { try { return JSON.parse(localStorage.getItem('itadaki-town-me')) || {}; } catch { return {}; } };
+let me = loadMe();
+const myName = () => (me.name || '').replace(/[<>&"']/g, '').trim() || 'あなた';
+const myColor = () => ME_COLORS.includes(me.color) ? me.color : ME_COLORS[0];
+// phones buzz a little at big moments (Android; iPhones don't support it)
+let BUZZ = (() => { try { return localStorage.getItem('itadaki-town-buzz') !== '0'; } catch { return true; } })();
+const buzz = pattern => { if (BUZZ && !DEMO && navigator.vibrate) try { navigator.vibrate(pattern); } catch {} };
+let ff = false;      // fast-forwarding through the CPUs' turns
 let townEv = null;   // the current town event, if any
 let hist = [];       // everyone's total assets at the start of each round, for the end-of-game chart
 
@@ -1167,7 +1216,7 @@ function drawStatic() {
   ctx.font = font(400, cs * 0.44, DISPLAY_FONT);
   outlined(fmt(target), 6.5 * cs, (2.35 + evY) * cs, '#ff5fa2', INK, 4);
   ctx.font = font(800, cs * 0.22); ctx.fillStyle = INK;
-  ctx.fillText(`ラウンド ${round}`, 6.5 * cs, (3.05 + evY * 1.4) * cs);
+  ctx.fillText(`ラウンド ${round} ${hist.length ? timeOf(round)[1] : ''}`, 6.5 * cs, (3.05 + evY * 1.4) * cs);
   if (townEv) {
     // the running town event, as a badge under the round number
     const left = Math.max(1, townEv.until - round);
@@ -2052,6 +2101,7 @@ function renderPanel() {
     }
     p._last = p.cash;
   }
+  checkTrophies();
   $('players').innerHTML = players.map(p => {
     const suits = Object.entries(SUITS).map(([k, s]) => `<span class="${p.suits[k] ? 'on' : ''} ${k === 'h' || k === 'd' ? 'red' : ''}">${s}</span>`).join('') +
       (p.wild ? `<span class="w">W×${p.wild}</span>` : '');
@@ -2129,6 +2179,22 @@ cv.addEventListener('click', e => {
 });
 
 // ---------- game flow ----------
+function setFF(v) {
+  ff = v;
+  speed = DEMO ? 0.01 : ff ? 0.12 : TEMPOS[tempo].v;
+  $('ffBtn').classList.toggle('on', ff);
+  $('ffBtn').textContent = ff ? '⏩ 早送り中…' : '⏩ 早送り';
+}
+$('ffBtn').onclick = () => { setFF(!ff); Sound.play('click'); };
+
+// ---- time of day: the sky turns morning → day → evening → night as the rounds go by ----
+const TIMES = [['morning', '🌅'], ['day', '☀️'], ['evening', '🌇'], ['night', '🌙']];
+const timeOf = r => TIMES[Math.floor((r - 1) / 2) % 4];
+function syncTime() {
+  const [t] = over ? TIMES[1] : timeOf(round);
+  TIMES.forEach(([k]) => document.body.classList.toggle('t-' + k, k === t && k !== 'day'));
+}
+
 function newGame(t) {
   target = t;
   resetBoard();
@@ -2137,6 +2203,7 @@ function newGame(t) {
     stocks: DISTRICTS.map(() => 0), skip: false, feeDouble: false, freeFee: false, bankrupt: false,
   }));
   if (DEMO && DIFFS[params.get('pdiff')]) players[0].diffOverride = params.get('pdiff');
+  if (!DEMO) Object.assign(players[0], { name: myName(), color: myColor() });
   turn = 0; round = 1; townEv = null; hist = [players.map(worth)];
   newChanceBoard();
   startLoop();
@@ -2150,6 +2217,7 @@ function startLoop() {
   Sound.startBgm();
   $('log').innerHTML = '';
   ['title', 'end'].forEach(id => $(id).classList.add('hidden'));
+  syncTime(); setFF(false);
   log(round === 1 && turn === 0 ? `ゲームスタート！目標は <b>${fmt(target)}</b>` : `ラウンド${round}から再開しました`);
   renderPanel();
   gameLoop(++gameId);
@@ -2169,6 +2237,7 @@ async function gameLoop(id) {
     turn = (turn + 1) % players.length;
     if (turn === 0) {
       round++;
+      syncTime();
       hist.push(players.map(worth));
       if (!over && id === gameId) await townEvent();
     }
@@ -2208,6 +2277,8 @@ async function townEvent() {
 
 async function takeTurn(p) {
   current = p; dice = null;
+  if (!p.cpu && ff) setFF(false);
+  $('ffBtn').hidden = !p.cpu || DEMO || !players.some(q => !q.cpu && !q.bankrupt);
   p.feeDouble = 0;
   SHOPS.forEach(s => { if (cells[s].closedUntil === p.id) cells[s].closedUntil = null; });
   if (feeDay && feeDay.until === p.id) { feeDay = null; log('買い物料がふつうにもどった'); }
@@ -2365,6 +2436,7 @@ async function bankVisit(p, landed) {
     p.wild -= used;
     log(`🎉 ${pname(p)}がレベル${p.level}に昇進！ 給料 <b>${fmt(pay)}</b>`);
     chat(p, 'promote');
+    if (!p.cpu) buzz([60, 40, 60]);
     renderPanel();
     await toast(`🎉 ${pname(p)}が昇進！<br>給料 <b>${fmt(pay)}</b>`, 1300);
   }
@@ -2423,6 +2495,7 @@ async function land(p) {
     const win = [0, 0, 50, 100, 100, 200, 400][rand(7)];
     Sound.play(win ? 'coin' : 'bad');
     p.cash += win;
+    if (win === 400) trophy('lucky', p);
     log(`${pname(p)}の宝くじ… ${win ? `<b>${fmt(win)}</b> 当たり！` : 'はずれ'}`);
     await toast(`🎫 宝くじ… ${win ? `<b>${fmt(win)}</b> 当たり！` : 'はずれ…'}`, 1000);
   }
@@ -2461,6 +2534,8 @@ async function landShop(p, c) {
     p.paid = (p.paid || 0) + f; o.earned = (o.earned || 0) + f;
     if (f >= 150) chat(p, 'pay');
     if (f >= 100) chat(o, 'earn');
+    if (f >= 500) trophy('bigFee', o);
+    if (f >= 200 && (!p.cpu || !o.cpu)) buzz(!p.cpu ? [120, 50, 120] : 70);
     Sound.play(f > 0 ? 'pay' : 'coin');
     log(`${pname(p)}が${pname(o)}の${c.name}で買い物料 <b>${fmt(f)}</b>`);
     renderPanel();
@@ -2478,6 +2553,7 @@ async function landShop(p, c) {
         Sound.play('warp'); cellPop(c.id); burstCell(c.id, 50, 1.2);
         log(`💥 ${pname(p)}が${pname(o)}の${c.name}を <b>${fmt(cost)}</b> で買い取った！`);
         chat(p, 'buyout'); chat(o, 'robbed');
+        trophy('buyout', p);
         await toast(`💥 ${pname(p)}が${c.name}を買い取った！`, 1100);
       }
     }
@@ -2560,6 +2636,10 @@ function checkMonopoly(q, s) {
   Sound.play('fanfare');
   DISTRICTS[c.d].shops.forEach(x => { cellPop(x); burstCell(x, 20, 0.9); });
   log(`👑 ${pname(q)}が${DISTRICTS[c.d].name}を独占！`);
+  if (!q.cpu) {
+    trophy('mono', q);
+    if (DISTRICTS.filter((d, i) => ownedIn(q.id, i) === d.shops.length).length >= 3) trophy('mono3', q);
+  }
   chat(q, 'monopoly');
   toast(`👑 ${pname(q)}が<br><b>${DISTRICTS[c.d].name}</b>を独占！`, 1300);
 }
@@ -2579,6 +2659,7 @@ function executeTrade(a, aShops, aMoney, b, bShops, bMoney) {
   a.cash += bMoney - aMoney; b.cash += aMoney - bMoney;
   Sound.play('buy');
   const desc = (list, m) => [...list.map(s => cells[s].name), ...(m ? [fmt(m)] : [])].join('・') || 'なし';
+  if (!a.cpu || !b.cpu) trophy('deal');
   log(`🤝 交渉成立！ ${pname(a)}（${desc(aShops, aMoney)}）⇄ ${pname(b)}（${desc(bShops, bMoney)}）`);
   aShops.forEach(s => checkMonopoly(b, s));
   bShops.forEach(s => checkMonopoly(a, s));
@@ -2905,6 +2986,7 @@ function refreshResume() {
   $('resume').hidden = !sv;
   if (sv) $('resume').textContent = `つづきから（ラウンド${sv.round}・目標${fmt(sv.target)}・${(DIFFS[sv.diff] || DIFFS.normal).label}）`;
   syncDiff();
+  if (typeof syncMe === 'function') syncMe();
 }
 function syncDiff() {
   $('diffSeg').innerHTML = Object.entries(DIFFS).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.label}</button>`).join('');
@@ -3191,6 +3273,7 @@ async function settleDebt(p) {
 
 function bankrupt(p) {
   p.bankrupt = true;
+  if (!p.cpu) buzz(400);
   log(`💸 ${pname(p)}が破産した…`);
   endGame(null, `${p.name}が破産したのでゲーム終了！`);
 }
@@ -3619,6 +3702,7 @@ async function openChance(p) {
     const r = $('chanceGrid').getBoundingClientRect();
     burst(r.left + r.width / 2, r.top + r.height / 2, longest === CN ? 120 : 50, longest === CN ? 1.5 : 1);
     log(`✨ ${pname(p)}がチャンスボードで${longest}枚ならべた！ボーナス <b>${fmt(bonus)}</b>`);
+    if (longest === CN) trophy('line8', p);
     renderPanel();
   }
   if (p.cpu) await sleep(1800);
@@ -3783,6 +3867,16 @@ function endGame(winner, reason) {
   $('awards').innerHTML = awards.map(([icon, name, q, val]) =>
     `<div class="award"><span class="ai">${icon}</span><small>${name}</small><b>${chipOf(q)}</b><small>${val(q)}</small></div>`).join('');
   if (!DEMO) saveRecord(winner);
+  setFF(false); $('ffBtn').hidden = true; syncTime();
+  const human = players.find(q => !q.cpu);
+  if (winner && winner === human) {
+    trophy('win');
+    if (diff === 'hard') trophy('winHard');
+    if (round <= 20) trophy('winFast');
+    if (target >= 12000) trophy('winLong');
+    if (players.every(q => q === human || worth(q) < worth(human) / 2)) trophy('winBig');
+    buzz([80, 60, 80, 60, 200]);
+  }
   showRecord($('endRecord'));
   $('end').classList.remove('hidden');
   drawEndChart();
@@ -3817,6 +3911,61 @@ function drawEndChart() {
     g.lineWidth = 3.5; g.strokeStyle = q.color; g.stroke();
   });
 }
+// ---- trophies: kept across games ----
+const TROPHIES = [
+  ['win',      '🏆', 'はじめての優勝',   '目標を達成して優勝する'],
+  ['winHard',  '💪', 'つよいCPUに勝つ',  'CPU「つよい」で優勝する'],
+  ['winFast',  '⚡', 'スピード優勝',     '20ラウンド以内で優勝する'],
+  ['winLong',  '🏔️', 'ながい道のり',     '目標 12,000G で優勝する'],
+  ['winBig',   '👑', 'ぶっちぎり',       'ほかの全員の倍以上の資産で優勝する'],
+  ['mono',     '🏘️', 'エリア独占',       '1つのエリアの店をぜんぶ持つ'],
+  ['mono3',    '🌆', '街の大地主',       '1回のゲームで3つのエリアを独占する'],
+  ['line8',    '🎆', 'ラインコンプリート', 'チャンスボードで8枚ならべる'],
+  ['level5',   '🎖️', 'エリート',         'レベル5に昇進する'],
+  ['buyout',   '💥', '買い取り',         'ほかの人のお店を5倍で買い取る'],
+  ['bigFee',   '💰', '大もうけ',         '1回で500G以上の買い物料をもらう'],
+  ['stocks',   '📈', '株長者',           '持ち株の価値が3,000Gをこえる'],
+  ['deal',     '🤝', '交渉上手',         '交渉を成立させる'],
+  ['lucky',    '🎫', '大当たり',         '宝くじで400Gを当てる'],
+];
+const TROPHY_KEY = 'itadaki-town-trophies';
+const loadTrophies = () => { try { return JSON.parse(localStorage.getItem(TROPHY_KEY)) || {}; } catch { return {}; } };
+const popQueue = [];
+function trophy(key, p) {
+  if (DEMO || (p && p.cpu)) return;
+  const got = loadTrophies();
+  if (got[key]) return;
+  got[key] = new Date().toISOString().slice(0, 10);
+  try { localStorage.setItem(TROPHY_KEY, JSON.stringify(got)); } catch {}
+  const t = TROPHIES.find(x => x[0] === key);
+  log(`🏆 トロフィー「<b>${t[2]}</b>」をゲット！`);
+  popQueue.push(t);
+  if (popQueue.length === 1) showPop();
+}
+function showPop() {
+  const t = popQueue[0];
+  if (!t) return;
+  const el = $('trophyPop');
+  el.innerHTML = `<small>🏆 トロフィーゲット！</small>${t[1]} ${t[2]}`;
+  el.hidden = false;
+  Sound.play('card'); buzz(60);
+  setTimeout(() => { el.hidden = true; popQueue.shift(); setTimeout(showPop, 250); }, 2600);
+}
+function showTrophies() {
+  const got = loadTrophies();
+  $('trophyCount').textContent = `${TROPHIES.filter(t => got[t[0]]).length} / ${TROPHIES.length} こ ゲット`;
+  $('trophyList').innerHTML = TROPHIES.map(([k, icon, name, how]) =>
+    `<div class="t ${got[k] ? '' : 'off'}"><span class="i">${icon}</span><b>${name}</b><small>${how}${got[k] ? `<br>✔ ${got[k]}` : ''}</small></div>`).join('');
+  openSheet('trophyOv');
+}
+// stock and level trophies are checked whenever the panel redraws
+function checkTrophies() {
+  const h = players.find(q => !q.cpu && !q.bankrupt);
+  if (!h || over) return;
+  if (h.level >= 5) trophy('level5', h);
+  if (stockWorth(h) > 3000) trophy('stocks', h);
+}
+
 const RECORD_KEY = 'itadaki-town-record';
 const loadRecord = () => { try { return JSON.parse(localStorage.getItem(RECORD_KEY)) || {}; } catch { return {}; } };
 function saveRecord(winner) {
@@ -3870,6 +4019,28 @@ $('ecoBtn').onclick = () => {
   syncEco(); resize(); Sound.play('click');
 };
 syncEco();
+const syncBuzz = () => { $('buzzBtn').textContent = BUZZ ? 'ON' : 'OFF'; $('buzzBtn').classList.toggle('primary', BUZZ); };
+$('buzzBtn').onclick = () => {
+  BUZZ = !BUZZ;
+  try { localStorage.setItem('itadaki-town-buzz', BUZZ ? '1' : '0'); } catch {}
+  syncBuzz(); buzz(60); Sound.play('click');
+};
+syncBuzz();
+$('titleTrophy').onclick = showTrophies;
+const saveMe = () => { try { localStorage.setItem('itadaki-town-me', JSON.stringify(me)); } catch {} };
+function syncMe() {
+  $('meAv').style.setProperty('--pc', myColor());
+  document.querySelector('.crew .av').style.setProperty('--pc', myColor());
+  $('meColors').innerHTML = ME_COLORS.map(c => `<button data-c="${c}" style="--c:${c}" class="${c === myColor() ? 'on' : ''}" aria-label="コマの色"></button>`).join('');
+  $('meColors').querySelectorAll('button').forEach(b => b.onclick = () => { me.color = b.dataset.c; saveMe(); syncMe(); Sound.play('click'); });
+  const n = getTrophyCount();
+  $('titleTrophy').textContent = `🏆 トロフィー ${n}/${TROPHIES.length}`;
+}
+const getTrophyCount = () => { const g = loadTrophies(); return TROPHIES.filter(t => g[t[0]]).length; };
+$('meName').value = me.name || '';
+$('meName').addEventListener('input', () => { me.name = $('meName').value.slice(0, 6); saveMe(); });
+$('meName').addEventListener('keydown', e => { if (e.key === 'Enter') $('meName').blur(); });
+syncMe();
 const syncVolumes = () => {
   for (const k of ['bgm', 'se']) {
     const v = Math.round(Sound.prefs[k] * 100);
@@ -3904,7 +4075,7 @@ function setAway(v) {
   else { Sound.resume(); awayWaiters.splice(0).forEach(r => r()); }
 }
 document.addEventListener('contextmenu', e => e.preventDefault());
-document.addEventListener('selectstart', e => e.preventDefault());
+document.addEventListener('selectstart', e => { if (!e.target.closest || !e.target.closest('input')) e.preventDefault(); });
 document.addEventListener('visibilitychange', () => setAway(document.hidden));
 addEventListener('pagehide', () => setAway(true));
 addEventListener('pageshow', () => setAway(document.hidden));
