@@ -444,6 +444,23 @@
     .btns { gap: 6px; margin-top: 8px; }
     .btns button { padding: 6px 11px; font-size: 13px; }
   }
+  .skydeco { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+  .cloud { position: absolute; top: var(--y); left: 0; width: 130px; height: 38px; border-radius: 30px; background: #fff; opacity: .75;
+    animation: cloudMove var(--d) linear infinite; animation-delay: var(--o); transition: opacity 1.2s; }
+  .cloud::before, .cloud::after { content: ''; position: absolute; background: inherit; border-radius: 50%; }
+  .cloud::before { width: 54px; height: 54px; left: 20px; top: -26px; }
+  .cloud::after { width: 40px; height: 40px; left: 62px; top: -16px; }
+  @keyframes cloudMove { from { transform: translateX(-180px) scale(var(--s)); } to { transform: translateX(calc(100vw + 60px)) scale(var(--s)); } }
+  .stars { position: absolute; inset: 0; opacity: 0; transition: opacity 1.5s; }
+  .stars i { position: absolute; width: var(--z); height: var(--z); background: #fff6c4; border-radius: 50%; box-shadow: 0 0 6px #fff6c4;
+    animation: twinkle var(--d) ease-in-out infinite alternate; animation-delay: var(--o); }
+  @keyframes twinkle { from { opacity: .2; transform: scale(.6); } to { opacity: 1; transform: scale(1.1); } }
+  body.t-night .stars { opacity: 1; }
+  body.t-evening .stars { opacity: .35; }
+  body.t-night .cloud { opacity: .14; }
+  body.t-evening .cloud { opacity: .55; background: #ffe6d6; }
+  .eco .cloud, .eco .stars i { animation: none; }
+  .eco .cloud { transform: translateX(calc(var(--y) * 9)); }
   .eco .pc.now, .eco .au-b.now, .eco .panel.aim .f, .eco .panel.line .b { animation: none; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -451,6 +468,14 @@
 </style>
 </head>
 <body>
+<div class="skydeco" aria-hidden="true">
+  <i class="cloud" style="--y:6%;--d:95s;--o:-20s;--s:1.1"></i>
+  <i class="cloud" style="--y:24%;--d:120s;--o:-70s;--s:.8"></i>
+  <i class="cloud" style="--y:47%;--d:105s;--o:-45s;--s:1.3"></i>
+  <i class="cloud" style="--y:70%;--d:130s;--o:-100s;--s:.9"></i>
+  <i class="cloud" style="--y:86%;--d:110s;--o:-5s;--s:1"></i>
+  <div class="stars" id="stars"></div>
+</div>
 <div id="app">
   <aside id="left"><div id="players"></div></aside>
   <div id="boardWrap">
@@ -1021,10 +1046,15 @@ function tokenPos(p, i, now) {
       look = [Math.sign(tx - fx), Math.sign(ty - fy)];
     }
   }
-  return { x, y, hop, scale, look, moving, crowd };
+  let squash = 0;
+  if (a && !a.warp && !REDUCED && !moving && now < a.t0 + a.dur + 280) {
+    const e = (now - a.t0 - a.dur) / 280;
+    squash = 0.2 * Math.sin(e * Math.PI * 2) * (1 - e);
+  }
+  return { x, y, hop, scale, look, moving, crowd, squash };
 }
 
-function drawBlob(x, y, r, color, look = [0, 0], blink = false) {
+function drawBlob(x, y, r, color, look = [0, 0], blink = false, mood = 0) {
   ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
   ctx.fillStyle = color; ctx.fill();
   ctx.lineWidth = Math.max(2, r * 0.17); ctx.strokeStyle = INK; ctx.stroke();
@@ -1041,7 +1071,23 @@ function drawBlob(x, y, r, color, look = [0, 0], blink = false) {
   }
   ctx.fillStyle = 'rgba(255,95,162,0.45)';
   for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x + s * r * 0.58, y + r * 0.3, r * 0.14, r * 0.08, 0, 0, 7); ctx.fill(); }
+  // mood: 1 = grin (leading), -1 = worried with a sweat drop (money trouble)
+  if (mood && r > 6) {
+    ctx.lineWidth = Math.max(1.5, r * 0.1); ctx.strokeStyle = INK; ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (mood > 0) ctx.arc(x, y + r * 0.3, r * 0.2, 0.15 * Math.PI, 0.85 * Math.PI);
+    else ctx.arc(x, y + r * 0.62, r * 0.18, 1.2 * Math.PI, 1.8 * Math.PI);
+    ctx.stroke();
+    if (mood < 0) {
+      const dx = x + r * 0.78, dy = y - r * 0.5;
+      ctx.fillStyle = '#7fd4ff';
+      ctx.beginPath(); ctx.moveTo(dx, dy - r * 0.28); ctx.quadraticCurveTo(dx + r * 0.2, dy + r * 0.02, dx, dy + r * 0.1);
+      ctx.quadraticCurveTo(dx - r * 0.2, dy + r * 0.02, dx, dy - r * 0.28); ctx.fill();
+      ctx.lineWidth = 1.2; ctx.stroke();
+    }
+  }
 }
+const moodOf = p => p.bankrupt || !hist.length ? 0 : p.cash < 150 ? -1 : isLeader(p) && worth(p) > START_CASH ? 1 : 0;
 
 function drawDice(x, y, now) {
   if (!dice) {
@@ -1107,7 +1153,9 @@ function drawTile(c, now, pop = true) {
   ctx.lineWidth = 2.2; ctx.strokeStyle = INK; rr(-h, -h, w, w, r); ctx.stroke();
   ctx.fillStyle = INK;
   if (c.type === 'shop') {
-    ctx.font = font(800, cs * 0.15); ctx.fillText(DISTRICTS[c.d].key, 0, -h + w * 0.145);
+    // ★ for each step the shop has been built up (half its base price)
+    const lv = owned ? Math.max(0, Math.min(3, Math.floor((c.value - c.base) / (c.base * 0.5)))) : 0;
+    ctx.font = font(800, cs * 0.15); ctx.fillText(DISTRICTS[c.d].key + (lv ? ' ' + '★'.repeat(lv) : ''), 0, -h + w * 0.145, w * 0.95);
     if (owned) {
       // what visitors pay is the number that matters on an owned shop
       ctx.font = font(400, cs * 0.29, DISPLAY_FONT);
@@ -1143,6 +1191,15 @@ function drawTile(c, now, pop = true) {
     ctx.font = font(400, cs * (label.length > 2 ? 0.17 : 0.3), DISPLAY_FONT);
     ctx.fillText(label, 0, 2);
   }
+  if (c.type === 'shop' && owned && ownedIn(c.owner, c.d) === DISTRICTS[c.d].shops.length) {
+    // a whole area in one hand: gold rim and a crown on the corner
+    ctx.lineWidth = 3; ctx.strokeStyle = '#ffd23f'; rr(-h - 2, -h - 2, w + 4, w + 4, r * 1.15); ctx.stroke();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = INK; rr(-h - 3.6, -h - 3.6, w + 7.2, w + 7.2, r * 1.25); ctx.stroke();
+    const cx = h - w * 0.1, cy = -h - w * 0.02, k = w * 0.14;
+    ctx.beginPath(); ctx.moveTo(cx - k, cy + k * 0.55); ctx.lineTo(cx - k, cy - k * 0.45); ctx.lineTo(cx - k * 0.5, cy + k * 0.05);
+    ctx.lineTo(cx, cy - k * 0.75); ctx.lineTo(cx + k * 0.5, cy + k * 0.05); ctx.lineTo(cx + k, cy - k * 0.45); ctx.lineTo(cx + k, cy + k * 0.55); ctx.closePath();
+    ctx.fillStyle = '#ffd23f'; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = INK; ctx.stroke();
+  }
   if (c.closedUntil != null && owned) {
     ctx.rotate(-0.35);
     ctx.fillStyle = '#ff3d63'; rr(-w * 0.52, -cs * 0.12, w * 1.04, cs * 0.24, 6); ctx.fill();
@@ -1161,7 +1218,7 @@ function drawRace() {
   const top = Math.max(...players.filter(q => !q.bankrupt).map(worth));
   players.forEach((q, i) => {
     const y = (5.98 + i * 0.47) * cs, w = worth(q), f = Math.max(0, Math.min(1, w / target));
-    drawBlob(1.4 * cs, y, cs * 0.14, q.bankrupt ? '#bbb' : q.color);
+    drawBlob(1.4 * cs, y, cs * 0.14, q.bankrupt ? '#bbb' : q.color, [0, 0], false, moodOf(q));
     ctx.fillStyle = '#fff'; rr(x0, y - bh / 2, x1 - x0, bh, bh / 2); ctx.fill();
     if (f > 0.02) { ctx.fillStyle = q.bankrupt ? '#bbb' : q.color; rr(x0, y - bh / 2, Math.max(bh, (x1 - x0) * f), bh, bh / 2); ctx.fill(); }
     ctx.lineWidth = 2; ctx.strokeStyle = INK; rr(x0, y - bh / 2, x1 - x0, bh, bh / 2); ctx.stroke();
@@ -1209,6 +1266,27 @@ function drawStatic() {
     ctx.stroke();
   }
 
+  // evening and night: the town dims, lamps in the blocks glow (squares are drawn after this, so they stay bright)
+  const tod = hist.length && !over ? timeOf(round)[0] : 'day';
+  if (tod === 'evening' || tod === 'night') {
+    const night = tod === 'night';
+    ctx.fillStyle = night ? 'rgba(25,30,90,0.34)' : 'rgba(255,110,40,0.14)';
+    rr(1, 1, size - 6, size - 7, cs * 0.45); ctx.fill();
+    for (const q of QUADS) for (const [fx, fy] of [[0.32, 0.32], [2.68, 0.32], [0.32, 2.68], [2.68, 2.68]]) {
+      const lx = (q.x + fx) * cs, ly = (q.y + fy) * cs, gr = cs * (night ? 0.55 : 0.4);
+      const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, gr);
+      g.addColorStop(0, night ? 'rgba(255,236,150,0.55)' : 'rgba(255,220,140,0.35)'); g.addColorStop(1, 'rgba(255,236,150,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, ly, gr, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff3b0'; ctx.beginPath(); ctx.arc(lx, ly, cs * 0.06, 0, 7); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
+    }
+    // the bank shines
+    const bx = (cells[BANK].x + 0.5) * cs, by = (cells[BANK].y + 0.5) * cs, br = cs * 0.95;
+    const g = ctx.createRadialGradient(bx, by, cs * 0.2, bx, by, br);
+    g.addColorStop(0, 'rgba(255,214,63,0.6)'); g.addColorStop(1, 'rgba(255,214,63,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, br, 0, 7); ctx.fill();
+  }
+
   // block contents that only change with game state
   const evY = townEv ? -0.22 : 0;
   ctx.font = font(800, cs * 0.24); ctx.fillStyle = INK;
@@ -1235,7 +1313,7 @@ function drawStatic() {
   if (current) {
     ctx.fillStyle = 'rgba(43,35,70,0.2)';
     ctx.beginPath(); ctx.ellipse(6.5 * cs, 6.75 * cs, cs * 0.45, cs * 0.1, 0, 0, 7); ctx.fill();
-    drawBlob(6.5 * cs, 6.2 * cs, cs * 0.5, current.color);
+    drawBlob(6.5 * cs, 6.2 * cs, cs * 0.5, current.color, [0, 0], false, moodOf(current));
     ctx.font = font(800, cs * 0.26); ctx.fillStyle = INK;
     ctx.fillText(`${current.name}の番`, 6.5 * cs, 7.15 * cs);
   }
@@ -1318,11 +1396,31 @@ function drawBoard(now) {
       ctx.beginPath(); ctx.arc(t.x, t.y - t.hop, r + 5, 0, 7);
       ctx.lineWidth = 2; ctx.strokeStyle = p.color; ctx.stroke();
     }
-    drawBlob(t.x, t.y - t.hop, r, p.color, t.look);
+    const blink = !REDUCED && (now + p.id * 1700) % 4200 < 130;
+    if (t.squash) {
+      ctx.save(); ctx.translate(t.x, t.y + r); ctx.scale(1 + t.squash, 1 - t.squash); ctx.translate(-t.x, -t.y - r);
+      drawBlob(t.x, t.y - t.hop, r, p.color, t.look, blink, moodOf(p));
+      ctx.restore();
+    } else drawBlob(t.x, t.y - t.hop, r, p.color, t.look, blink, moodOf(p));
     if (isCur) {     // pointer above the current player's head
       const by = t.y - t.hop - r - cs * 0.12 - (REDUCED ? 0 : Math.abs(Math.sin(now / 220)) * cs * 0.06), aw = cs * 0.13;
       ctx.beginPath(); ctx.moveTo(t.x, by + aw); ctx.lineTo(t.x - aw, by - aw * 0.4); ctx.lineTo(t.x + aw, by - aw * 0.4); ctx.closePath();
       ctx.fillStyle = p.color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+    }
+  }
+
+  // sparkles twinkling over monopolised areas
+  if (!ECO && !REDUCED) for (const id of sparkleShops()) {
+    const c = cells[id];
+    for (let k = 0; k < 2; k++) {
+      const ph = (now / 900 + id * 0.37 + k * 0.5) % 1, a = Math.sin(ph * Math.PI);
+      if (a < 0.05) continue;
+      const seed = id * 7 + k * 3 + Math.floor(now / 900 + id * 0.37 + k * 0.5);
+      const sx = (c.x + 0.15 + ((seed * 37) % 70) / 100) * cs, sy = (c.y + 0.15 + ((seed * 53) % 70) / 100) * cs, z = cs * 0.1 * a;
+      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.moveTo(sx, sy - z); ctx.quadraticCurveTo(sx, sy, sx + z, sy); ctx.quadraticCurveTo(sx, sy, sx, sy + z);
+      ctx.quadraticCurveTo(sx, sy, sx - z, sy); ctx.quadraticCurveTo(sx, sy, sx, sy - z); ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = '#ffd23f'; ctx.stroke(); ctx.restore();
     }
   }
 
@@ -1428,7 +1526,16 @@ function drawMiniMap(canvas, marks, now, opts = {}) {
 
 // ---------- particles on a full-screen layer ----------
 const fx = $('fx'), fctx = fx.getContext('2d');
-const confetti = [], floats = [];
+const confetti = [], floats = [], coins = [];
+// gold coins hop from the payer's piece to the owner's
+function flyCoins(from, to, amount) {
+  if (DEMO || REDUCED || !amount || from.bankrupt || to.bankrupt) return;
+  const now = performance.now(), a = tokenPos(from, 0, now), b = tokenPos(to, 0, now);
+  const [x0, y0] = boardPoint(a.x, a.y), [x1, y1] = boardPoint(b.x, b.y);
+  const n = Math.min(ECO ? 5 : 12, 3 + Math.floor(amount / 60));
+  for (let i = 0; i < n; i++) coins.push({ x0: x0 + (Math.random() - 0.5) * 14, y0, x1: x1 + (Math.random() - 0.5) * 14, y1,
+    t0: now + i * 70, dur: 650 + Math.random() * 200, arc: 60 + Math.random() * 50 + Math.hypot(x1 - x0, y1 - y0) * 0.2 });
+}
 const CONFETTI_COLORS = ['#ff5fa2', '#ffd23f', '#5fe0b5', '#4fd3ec', '#b892ff', '#ff9f5a'];
 function resizeFx() {
   const dpr = pixelRatio();
@@ -1473,13 +1580,25 @@ function floatMoney(p, amount) {
   floats.push({ x, y, dir, text: (amount > 0 ? '+' : '−') + fmt(Math.abs(amount)), color: p.color, loss: amount < 0, t0: nowT });
 }
 let lastFx = 0, fxDrawn = false;
-const fxActive = () => confetti.length > 0 || floats.length > 0 || fxDrawn;
+const fxActive = () => confetti.length > 0 || floats.length > 0 || coins.length > 0 || fxDrawn;
 function drawFx(now) {
   const dt = Math.min(0.05, (now - (lastFx || now)) / 1000);
   lastFx = now;
   if (!fxActive()) return;
   fctx.clearRect(0, 0, innerWidth, innerHeight);
-  fxDrawn = confetti.length > 0 || floats.length > 0;
+  fxDrawn = confetti.length > 0 || floats.length > 0 || coins.length > 0;
+  for (let i = coins.length - 1; i >= 0; i--) {
+    const c = coins[i], t = (now - c.t0) / c.dur;
+    if (t < 0) continue;
+    if (t > 1) { coins.splice(i, 1); if (!coins.length) Sound.play('coin'); continue; }
+    const e = t * t * (3 - 2 * t), x = c.x0 + (c.x1 - c.x0) * e, y = c.y0 + (c.y1 - c.y0) * e - Math.sin(Math.PI * t) * c.arc;
+    const r = 7, squeeze = Math.abs(Math.cos(t * 9));
+    fctx.save(); fctx.translate(x, y); fctx.scale(0.35 + 0.65 * squeeze, 1);
+    fctx.fillStyle = '#ffd23f'; fctx.beginPath(); fctx.arc(0, 0, r, 0, 7); fctx.fill();
+    fctx.lineWidth = 2; fctx.strokeStyle = '#2b2346'; fctx.stroke();
+    fctx.fillStyle = '#fff6b8'; fctx.beginPath(); fctx.arc(-2, -2, r * 0.35, 0, 7); fctx.fill();
+    fctx.restore();
+  }
   for (let i = confetti.length - 1; i >= 0; i--) {
     const c = confetti[i];
     c.vy += c.g * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt; c.life -= dt;
@@ -2146,18 +2265,21 @@ function renderInfo() {
 
 const shown = id => !$(id).classList.contains('hidden');
 function isBusy(now) {
-  return players.some(p => p.anim && now < p.anim.t0 + p.anim.dur + 80)
+  return players.some(p => p.anim && now < p.anim.t0 + p.anim.dur + 300)
     || (dice && (dice.rolling || (dice.t0 && now - dice.t0 < 900)))
     || highlight.length > 0 || focus.cands.length > 0 || focus.sel != null
     || Object.keys(cellFx).length > 0 || Object.values(talk).some(t => now < t.until) || shown('auctionOv') || shown('tradeOv') || shown('stockOv');
 }
+const sparkleShops = () => SHOPS.filter(s => cells[s].owner != null && !players[cells[s].owner].bankrupt && ownedIn(cells[s].owner, cells[s].d) === DISTRICTS[cells[s].d].shops.length);
 let lastDraw = 0, wasBusy = true;
 function frame(now) {
   requestAnimationFrame(frame);
   const busy = isBusy(now), fxOn = fxActive();
+  // gentle idle animation (sparkles, blinking) at a low frame rate; off in power-saving mode
+  const idle = !ECO && !REDUCED && !over && !appAway && hist.length > 0;
   // nothing moving and nothing changed: skip the frame entirely
-  if (!busy && !wasBusy && !boardDirty && !fxOn) return;
-  if (now - lastDraw < (ECO ? 32 : 15)) return;
+  if (!busy && !wasBusy && !boardDirty && !fxOn && !idle) return;
+  if (now - lastDraw < (busy || fxOn || boardDirty ? (ECO ? 32 : 15) : 66)) return;
   lastDraw = now; wasBusy = busy;
   drawBoard(now);
   if (shown('auctionOv')) drawMiniMap($('auMap'), miniMarks.au, now, miniMarks.auD != null ? { district: miniMarks.auD } : { keep: miniMarks.au.map(m => m.id) });
@@ -2190,9 +2312,12 @@ $('ffBtn').onclick = () => { setFF(!ff); Sound.play('click'); };
 // ---- time of day: the sky turns morning → day → evening → night as the rounds go by ----
 const TIMES = [['morning', '🌅'], ['day', '☀️'], ['evening', '🌇'], ['night', '🌙']];
 const timeOf = r => TIMES[Math.floor((r - 1) / 2) % 4];
+$('stars').innerHTML = Array.from({ length: 40 }, () =>
+  `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;--z:${2 + rand(3)}px;--d:${(1.5 + Math.random() * 2.5).toFixed(1)}s;--o:-${(Math.random() * 3).toFixed(1)}s"></i>`).join('');
 function syncTime() {
   const [t] = over ? TIMES[1] : timeOf(round);
   TIMES.forEach(([k]) => document.body.classList.toggle('t-' + k, k === t && k !== 'day'));
+  markDirty();
 }
 
 function newGame(t) {
@@ -2535,6 +2660,7 @@ async function landShop(p, c) {
     if (f >= 150) chat(p, 'pay');
     if (f >= 100) chat(o, 'earn');
     if (f >= 500) trophy('bigFee', o);
+    flyCoins(p, o, f);
     if (f >= 200 && (!p.cpu || !o.cpu)) buzz(!p.cpu ? [120, 50, 120] : 70);
     Sound.play(f > 0 ? 'pay' : 'coin');
     log(`${pname(p)}が${pname(o)}の${c.name}で買い物料 <b>${fmt(f)}</b>`);
@@ -2584,6 +2710,7 @@ async function landPlot(p, c) {
     p.cash -= f; o.cash += f;
     p.paid = (p.paid || 0) + f; o.earned = (o.earned || 0) + f;
     if (f >= 150) chat(p, 'pay');
+    flyCoins(p, o, f);
     Sound.play('pay');
     const what = c.building === 'cp' ? '通行料' : '税金';
     log(`${pname(p)}が${pname(o)}の${BUILDINGS[c.building].label}で${what} <b>${fmt(f)}</b>`);
