@@ -1,5 +1,5 @@
 // Offline support: the game page is network-first (so updates show up), everything else cache-first.
-const CACHE = 'itadaki-town-v3';
+const CACHE = 'itadaki-town-v4';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
